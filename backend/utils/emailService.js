@@ -11,24 +11,30 @@ function createTransporter() {
     return null;
   }
 
+  const transportOptions = {
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+    logger: false,
+    debug: false
+  };
+
   if (emailHost && emailPort) {
     return nodemailer.createTransport({
       host: emailHost,
       port: emailPort,
       secure: emailSecure,
-      auth: {
-        user: emailUser,
-        pass: emailPass
-      }
+      ...transportOptions
     });
   }
 
   return nodemailer.createTransport({
     service: process.env.EMAIL_SERVICE || 'gmail',
-    auth: {
-      user: emailUser,
-      pass: emailPass
-    }
+    ...transportOptions
   });
 }
 
@@ -143,14 +149,18 @@ async function sendOTPEmail(email, value, type) {
     return true;
   }
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-    to: email,
-    subject: template.subject,
-    html: buildEmailHtml(template, value, isOtpType)
-  });
-
-  return true;
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      to: email,
+      subject: template.subject,
+      html: buildEmailHtml(template, value, isOtpType)
+    });
+    return true;
+  } catch (error) {
+    console.error('[EMAIL ERROR] sendOTPEmail failed:', error);
+    return false;
+  }
 }
 
 module.exports = {

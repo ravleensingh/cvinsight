@@ -281,7 +281,15 @@ router.post('/signup', signupValidation, async (req, res) => {
       name: name.trim(),
       password: hashedPassword
     });
-    await sendOTPEmail(normalizedEmail, otp, 'signup');
+    const emailSent = await sendOTPEmail(normalizedEmail, otp, 'signup');
+
+    if (!emailSent) {
+      return res.status(502).json({
+        success: false,
+        message: 'Unable to send verification email. Please try again later.',
+        data: null
+      });
+    }
 
     return res.status(201).json({
       success: true,
