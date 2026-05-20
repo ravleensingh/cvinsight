@@ -11,7 +11,15 @@ export default function GoogleAuthCallback() {
   useEffect(() => {
     const resolveGoogleSession = async () => {
       try {
-        const response = await fetch(`${BACKEND_URL}/api/auth/google/session`, {
+        const params = new URLSearchParams(window.location.search)
+        const oauthState = params.get("oauth_state")
+        const sessionUrl = oauthState
+          ? `${BACKEND_URL}/api/auth/google/session?oauth_state=${encodeURIComponent(oauthState)}`
+          : `${BACKEND_URL}/api/auth/google/session`
+
+        console.log('[GoogleAuthCallback] sessionUrl:', sessionUrl)
+
+        const response = await fetch(sessionUrl, {
           method: "GET",
           credentials: "include",
         })

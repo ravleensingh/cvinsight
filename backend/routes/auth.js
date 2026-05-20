@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 const {
@@ -16,6 +17,36 @@ const { createOTP, verifyOTP } = require('../utils/otpService');
 const { sendOTPEmail } = require('../utils/emailService');
 
 const router = express.Router();
+
+const oauthStateStore = new Map();
+const OAUTH_STATE_TTL_MS = 2 * 60 * 1000;
+
+function createOAuthState(payload) {
+  const state = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+  const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
+  oauthStateStore.set(state, { ...payload, expiresAt });
+
+  setTimeout(() => {
+    oauthStateStore.delete(state);
+  }, OAUTH_STATE_TTL_MS + 1000);
+
+  return state;
+}
+
+function consumeOAuthState(state) {
+  if (!state || !oauthStateStore.has(state)) return null;
+
+  const entry = oauthStateStore.get(state);
+  if (!entry) return null;
+
+  if (Date.now() > entry.expiresAt) {
+    oauthStateStore.delete(state);
+    return null;
+  }
+
+  oauthStateStore.delete(state);
+  return entry;
+}
 
 function getOAuthCookieOptions() {
   const isProduction = process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true';
@@ -140,7 +171,13 @@ router.get('/google/callback', async (req, res) => {
       maxAge: 60 * 1000
     });
 
-    return res.redirect(`${frontendUrl}/auth/google/callback`);
+    const oauthState = createOAuthState({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      userId: user._id.toString()
+    });
+
+    return res.redirect(`${frontendUrl}/auth/google/callback?oauth_state=${encodeURIComponent(oauthState)}`);
   } catch (error) {
     console.error('[AUTH ERROR] Google callback error:', error.response?.data || error.message);
     return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
@@ -149,8 +186,26 @@ router.get('/google/callback', async (req, res) => {
 
 router.get('/google/session', async (req, res) => {
   try {
-    const accessToken = req.cookies?.oauth_access_token;
-    const refreshToken = req.cookies?.oauth_refresh_token;
+    const { oauth_state: oauthState } = req.query;
+    let accessToken = req.cookies?.oauth_access_token;
+    let refreshToken = req.cookies?.oauth_refresh_token;
+    let userId;
+
+    if (oauthState) {
+      const stored = consumeOAuthState(oauthState.toString());
+
+      if (!stored) {
+        return res.status(401).json({
+          success: false,
+          message: 'OAuth session not found or expired',
+          data: null
+        });
+      }
+
+      accessToken = stored.accessToken;
+      refreshToken = stored.refreshToken;
+      userId = stored.userId;
+    }
 
     if (!accessToken || !refreshToken) {
       return res.status(401).json({
@@ -161,7 +216,8 @@ router.get('/google/session', async (req, res) => {
     }
 
     const decoded = verifyAccessToken(accessToken);
-    const user = await User.findById(decoded.userId).select('_id email name avatar deletionScheduledAt');
+    const resolvedUserId = userId || decoded.userId;
+    const user = await User.findById(resolvedUserId).select('_id email name avatar deletionScheduledAt');
 
     if (!user) {
       return res.status(401).json({
