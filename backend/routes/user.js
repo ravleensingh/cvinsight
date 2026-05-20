@@ -82,7 +82,15 @@ router.post('/account-deletion/request-otp', auth, async (req, res) => {
     }
 
     const otp = await createOTP(user.email, 'account-deletion');
-    await sendOTPEmail(user.email, otp, 'account-deletion');
+    const emailResult = await sendOTPEmail(user.email, otp, 'account-deletion');
+    if (!emailResult.success) {
+      console.error('[USER ERROR] Account deletion OTP send failed for', user.email, '-', emailResult.error);
+      return res.status(502).json({
+        success: false,
+        message: 'Unable to send account deletion OTP. Please try again later.',
+        data: null
+      });
+    }
 
     return res.json({
       success: true,
@@ -138,7 +146,10 @@ router.post('/account-deletion/verify-otp', auth, [
     const deletionScheduledAt = new Date(Date.now() + gracePeriodDays * 24 * 60 * 60 * 1000);
 
     await User.findByIdAndUpdate(req.user.userId, { deletionScheduledAt });
-    await sendOTPEmail(user.email, deletionScheduledAt.toISOString(), 'account-deletion-scheduled');
+    const emailResult = await sendOTPEmail(user.email, deletionScheduledAt.toISOString(), 'account-deletion-scheduled');
+    if (!emailResult.success) {
+      console.error('[USER ERROR] Account deletion scheduled email failed for', user.email, '-', emailResult.error);
+    }
 
     return res.json({
       success: true,

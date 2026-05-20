@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
 const User = require('../models/User');
+const OTP = require('../models/OTP');
 const auth = require('../middleware/auth');
 const {
   signupValidation,
@@ -281,9 +282,11 @@ router.post('/signup', signupValidation, async (req, res) => {
       name: name.trim(),
       password: hashedPassword
     });
-    const emailSent = await sendOTPEmail(normalizedEmail, otp, 'signup');
+    const emailResult = await sendOTPEmail(normalizedEmail, otp, 'signup');
 
-    if (!emailSent) {
+    if (!emailResult.success) {
+      await OTP.deleteMany({ email: normalizedEmail, type: 'signup' });
+      console.error('[AUTH ERROR] Failed to send signup OTP email for', normalizedEmail, '-', emailResult.error);
       return res.status(502).json({
         success: false,
         message: 'Unable to send verification email. Please try again later.',
@@ -402,7 +405,15 @@ router.post('/resend-otp', resendOtpValidation, async (req, res) => {
     }
 
     const otp = await createOTP(normalizedEmail, type);
-    await sendOTPEmail(normalizedEmail, otp, type);
+    const emailResult = await sendOTPEmail(normalizedEmail, otp, type);
+    if (!emailResult.success) {
+      console.error('[AUTH ERROR] Resend OTP failed for', normalizedEmail, type, '-', emailResult.error);
+      return res.status(502).json({
+        success: false,
+        message: 'Unable to send OTP. Please try again later.',
+        data: null
+      });
+    }
 
     return res.json({
       success: true,
@@ -512,7 +523,10 @@ router.post('/forgot-password', forgotPasswordValidation, async (req, res) => {
         });
       }
       const otp = await createOTP(normalizedEmail, 'password-reset');
-      await sendOTPEmail(normalizedEmail, otp, 'password-reset');
+      const emailResult = await sendOTPEmail(normalizedEmail, otp, 'password-reset');
+      if (!emailResult.success) {
+        console.error('[AUTH ERROR] Forgot password OTP send failed for', normalizedEmail, '-', emailResult.error);
+      }
     }
 
     return res.json({

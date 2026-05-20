@@ -155,14 +155,14 @@ async function sendOTPEmail(email, value, type) {
   const isOtpType = type !== 'account-deletion-scheduled';
 
   if (!transporter) {
-    console.log(`[MAIL FALLBACK] ${type} for ${email}: code=${isOtpType ? value : 'n/a'}`);
-    return true;
+    console.warn(`[EMAIL WARN] Mail transporter not configured for ${email}: code=${isOtpType ? value : 'n/a'}`);
+    return { success: true, fallback: true };
   }
 
   try {
     const isVerified = await verifyTransporter(transporter);
     if (!isVerified) {
-      return false;
+      console.warn('[EMAIL WARN] Transporter verification failed, continuing to send mail anyway.');
     }
 
     await transporter.sendMail({
@@ -171,10 +171,11 @@ async function sendOTPEmail(email, value, type) {
       subject: template.subject,
       html: buildEmailHtml(template, value, isOtpType)
     });
-    return true;
+
+    return { success: true };
   } catch (error) {
     console.error('[EMAIL ERROR] sendOTPEmail failed:', error);
-    return false;
+    return { success: false, error: error?.message || String(error) };
   }
 }
 
