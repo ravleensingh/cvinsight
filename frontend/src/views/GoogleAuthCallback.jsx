@@ -2,8 +2,7 @@ import { useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { FaSpinner } from "react-icons/fa"
 import { setSession } from "../utils/auth"
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+import { API_BASE_URL } from "../utils/api"
 
 export default function GoogleAuthCallback() {
   const navigate = useNavigate()
@@ -14,8 +13,8 @@ export default function GoogleAuthCallback() {
         const params = new URLSearchParams(window.location.search)
         const oauthState = params.get("oauth_state")
         const sessionUrl = oauthState
-          ? `${BACKEND_URL}/api/auth/google/session?oauth_state=${encodeURIComponent(oauthState)}`
-          : `${BACKEND_URL}/api/auth/google/session`
+          ? `${API_BASE_URL}/api/auth/google/session?oauth_state=${encodeURIComponent(oauthState)}`
+          : `${API_BASE_URL}/api/auth/google/session`
 
         console.log('[GoogleAuthCallback] sessionUrl:', sessionUrl)
 

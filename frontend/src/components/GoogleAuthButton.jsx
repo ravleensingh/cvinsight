@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+import { API_BASE_URL } from "../utils/api"
 
 export default function GoogleAuthButton({ rememberMe = true }) {
   const handleGoogleAuth = () => {
@@ -8,7 +8,7 @@ export default function GoogleAuthButton({ rememberMe = true }) {
       // Ignore storage errors and still continue to auth redirect
     }
 
-    window.location.href = `${BACKEND_URL}/api/auth/google`
+    window.location.href = `${API_BASE_URL}/api/auth/google`
   }
 
   return (

@@ -1,8 +1,22 @@
 import axios from "axios"
 import { clearAuth, getRefreshToken, getToken } from "./auth"
 
-// NEXT_PUBLIC_ prefix is correct for Next.js — env vars are inlined at build time
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+function resolveBackendUrl() {
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL
+  }
+
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname
+    if (hostname.endsWith(".vercel.app")) {
+      return "https://cvinsight-d890.onrender.com"
+    }
+  }
+
+  return "http://localhost:5001"
+}
+
+export const API_BASE_URL = resolveBackendUrl()
 
 const api = axios.create({
   baseURL: API_BASE_URL,
