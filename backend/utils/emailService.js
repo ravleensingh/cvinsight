@@ -38,6 +38,16 @@ function createTransporter() {
   });
 }
 
+async function verifyTransporter(transporter) {
+  try {
+    await transporter.verify();
+    return true;
+  } catch (error) {
+    console.error('[EMAIL ERROR] SMTP transporter verification failed:', error);
+    return false;
+  }
+}
+
 function buildTemplate(type, value) {
   const formattedDate = (() => {
     if (type !== 'account-deletion-scheduled') {
@@ -150,6 +160,11 @@ async function sendOTPEmail(email, value, type) {
   }
 
   try {
+    const isVerified = await verifyTransporter(transporter);
+    if (!isVerified) {
+      return false;
+    }
+
     await transporter.sendMail({
       from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: email,
