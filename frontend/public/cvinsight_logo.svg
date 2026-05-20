@@ -1,0 +1,12 @@
+<svg viewBox="0 0 240 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CVInsight">
+  <defs>
+    <linearGradient id="cvinsightWordmark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626" />
+      <stop offset="100%" stop-color="#450a0a" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="18" fill="url(#cvinsightWordmark)" />
+  <path d="M20 18h18c5.523 0 10 4.477 10 10s-4.477 10-10 10h-8v8H20V18Zm10 10h8a3 3 0 0 0 0-6h-8v6Z" fill="#fff" />
+  <path d="M22 46 46 22" stroke="#fecaca" stroke-width="4.5" stroke-linecap="round" />
+  <text x="76" y="41" font-family="Outfit, Arial, sans-serif" font-size="28" font-weight="700" fill="#f5f5f5">CV<tspan fill="#dc2626">Insight</tspan></text>
+</svg>
