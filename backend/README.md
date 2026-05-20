@@ -82,7 +82,15 @@ EMAIL_PORT=
 EMAIL_USER=
 EMAIL_PASS=
 EMAIL_FROM=
+FORCE_SECURE_COOKIES=true
 ```
+
+When deploying cross-domain (frontend on Vercel, backend on Render), make sure `NODE_ENV=production` or set `FORCE_SECURE_COOKIES=true` so OAuth cookies are created with:
+
+- `sameSite=none`
+- `secure=true`
+
+This is required for the browser to accept backend cookies from a different domain during the OAuth callback flow.
 
 ## Run
 

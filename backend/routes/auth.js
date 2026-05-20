@@ -18,10 +18,12 @@ const { sendOTPEmail } = require('../utils/emailService');
 const router = express.Router();
 
 function getOAuthCookieOptions() {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true';
+
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     path: '/'
   };
 }
