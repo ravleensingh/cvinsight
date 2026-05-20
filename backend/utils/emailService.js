@@ -1,6 +1,12 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 const sendOTPEmail = async (email, otp, type) => {
   try {
@@ -52,8 +58,8 @@ const sendOTPEmail = async (email, otp, type) => {
         message = `Your verification code is: ${otp}. This code will expire in 10 minutes.`;
     }
 
-    const { data, error } = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'CVInsight <onboarding@resend.dev>',
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
       to: email,
       subject,
       html: `
@@ -68,13 +74,9 @@ const sendOTPEmail = async (email, otp, type) => {
           <p>Best regards,<br>CVInsight Team</p>
         </div>
       `
-    });
+    };
 
-    if (error) {
-      console.error('Email sending failed with Resend API error:', error);
-      return false;
-    }
-
+    await transporter.sendMail(mailOptions);
     return true;
   } catch (error) {
     console.error('Email sending failed:', error);
