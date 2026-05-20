@@ -282,11 +282,11 @@ router.post('/signup', signupValidation, async (req, res) => {
       name: name.trim(),
       password: hashedPassword
     });
-    const emailResult = await sendOTPEmail(normalizedEmail, otp, 'signup');
+    const emailSent = await sendOTPEmail(normalizedEmail, otp, 'signup');
 
-    if (!emailResult.success) {
+    if (!emailSent) {
       await OTP.deleteMany({ email: normalizedEmail, type: 'signup' });
-      console.error('[AUTH ERROR] Failed to send signup OTP email for', normalizedEmail, '-', emailResult.error);
+      console.error('[AUTH ERROR] Failed to send signup OTP email for', normalizedEmail);
       return res.status(502).json({
         success: false,
         message: 'Unable to send verification email. Please try again later.',
@@ -405,9 +405,9 @@ router.post('/resend-otp', resendOtpValidation, async (req, res) => {
     }
 
     const otp = await createOTP(normalizedEmail, type);
-    const emailResult = await sendOTPEmail(normalizedEmail, otp, type);
-    if (!emailResult.success) {
-      console.error('[AUTH ERROR] Resend OTP failed for', normalizedEmail, type, '-', emailResult.error);
+    const emailSent = await sendOTPEmail(normalizedEmail, otp, type);
+    if (!emailSent) {
+      console.error('[AUTH ERROR] Resend OTP failed for', normalizedEmail, type);
       return res.status(502).json({
         success: false,
         message: 'Unable to send OTP. Please try again later.',
@@ -523,9 +523,9 @@ router.post('/forgot-password', forgotPasswordValidation, async (req, res) => {
         });
       }
       const otp = await createOTP(normalizedEmail, 'password-reset');
-      const emailResult = await sendOTPEmail(normalizedEmail, otp, 'password-reset');
-      if (!emailResult.success) {
-        console.error('[AUTH ERROR] Forgot password OTP send failed for', normalizedEmail, '-', emailResult.error);
+      const emailSent = await sendOTPEmail(normalizedEmail, otp, 'password-reset');
+      if (!emailSent) {
+        console.error('[AUTH ERROR] Forgot password OTP send failed for', normalizedEmail);
       }
     }
 

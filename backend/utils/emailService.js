@@ -1,51 +1,45 @@
 const nodemailer = require('nodemailer');
 
-function createTransporter() {
-  const emailUser = process.env.EMAIL_USER;
-  const emailPass = process.env.EMAIL_PASS;
-  const emailHost = process.env.EMAIL_HOST;
-  const emailPort = Number(process.env.EMAIL_PORT || 0);
-  const emailSecure = process.env.EMAIL_SECURE === 'true';
+const emailUser = process.env.EMAIL_USER;
+const emailPass = process.env.EMAIL_PASS;
+const emailHost = process.env.EMAIL_HOST;
+const emailPort = Number(process.env.EMAIL_PORT || 0);
+const emailSecure = process.env.EMAIL_SECURE === 'true';
+const emailService = process.env.EMAIL_SERVICE || 'gmail';
+const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
 
-  if (!emailUser || !emailPass) {
-    return null;
-  }
+let transporter = null;
 
-  const transportOptions = {
+if (emailUser && emailPass) {
+  const transportConfig = {
     auth: {
       user: emailUser,
       pass: emailPass
     },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
-    socketTimeout: 10000,
-    logger: false,
-    debug: false
+    socketTimeout: 10000
   };
 
   if (emailHost && emailPort) {
-    return nodemailer.createTransport({
+    transporter = nodemailer.createTransport({
       host: emailHost,
       port: emailPort,
       secure: emailSecure,
-      ...transportOptions
+      ...transportConfig
+    });
+  } else {
+    transporter = nodemailer.createTransport({
+      service: emailService,
+      ...transportConfig
     });
   }
 
-  return nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || 'gmail',
-    ...transportOptions
-  });
-}
-
-async function verifyTransporter(transporter) {
-  try {
-    await transporter.verify();
-    return true;
-  } catch (error) {
-    console.error('[EMAIL ERROR] SMTP transporter verification failed:', error);
-    return false;
-  }
+  transporter.verify()
+    .then(() => console.log('[EMAIL] Mail transporter verified successfully.'))
+    .catch((error) => console.error('[EMAIL ERROR] Mail transporter verification failed:', error));
+} else {
+  console.warn('[EMAIL WARN] Email transport is not configured. Set EMAIL_USER and EMAIL_PASS in .env.');
 }
 
 function buildTemplate(type, value) {
@@ -108,7 +102,6 @@ function buildEmailHtml(template, value, isOtpType) {
     <tr>
       <td align="center">
         <table width="100%" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
-          <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#111111,#b91c1c);padding:28px 32px;">
               <span style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
@@ -116,7 +109,6 @@ function buildEmailHtml(template, value, isOtpType) {
               </span>
             </td>
           </tr>
-          <!-- Body -->
           <tr>
             <td style="padding:32px;">
               <h2 style="margin:0 0 12px;color:#0f172a;font-size:20px;">${template.title}</h2>
@@ -132,7 +124,6 @@ function buildEmailHtml(template, value, isOtpType) {
               </p>
             </td>
           </tr>
-          <!-- Footer -->
           <tr>
             <td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0;">
               <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;">
@@ -150,32 +141,25 @@ function buildEmailHtml(template, value, isOtpType) {
 }
 
 async function sendOTPEmail(email, value, type) {
-  const transporter = createTransporter();
+  if (!transporter) {
+    console.error('[EMAIL ERROR] Mail transporter is not configured. Please set EMAIL_USER and EMAIL_PASS.');
+    return false;
+  }
+
   const template = buildTemplate(type, value);
   const isOtpType = type !== 'account-deletion-scheduled';
 
-  if (!transporter) {
-    console.warn(`[EMAIL WARN] Mail transporter not configured for ${email}: code=${isOtpType ? value : 'n/a'}`);
-    return { success: true, fallback: true };
-  }
-
   try {
-    const isVerified = await verifyTransporter(transporter);
-    if (!isVerified) {
-      console.warn('[EMAIL WARN] Transporter verification failed, continuing to send mail anyway.');
-    }
-
     await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+      from: emailFrom,
       to: email,
       subject: template.subject,
       html: buildEmailHtml(template, value, isOtpType)
     });
-
-    return { success: true };
+    return true;
   } catch (error) {
     console.error('[EMAIL ERROR] sendOTPEmail failed:', error);
-    return { success: false, error: error?.message || String(error) };
+    return false;
   }
 }
 
