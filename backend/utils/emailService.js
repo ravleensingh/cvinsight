@@ -1,10 +1,44 @@
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
+const smtpOptions = {};
+const emailHost = process.env.EMAIL_HOST;
+const emailPort = process.env.EMAIL_PORT ? Number(process.env.EMAIL_PORT) : undefined;
+const emailSecure = process.env.EMAIL_SECURE === 'true';
+const emailService = process.env.EMAIL_SERVICE || 'gmail';
+
+if (emailHost) {
+  smtpOptions.host = emailHost;
+  smtpOptions.port = emailPort || 587;
+  smtpOptions.secure = emailSecure || smtpOptions.port === 465;
+  smtpOptions.auth = {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
+  };
+} else {
+  // If no host is provided, assume Gmail and explicitly configure it
+  smtpOptions.host = 'smtp.gmail.com';
+  smtpOptions.port = 465;
+  smtpOptions.secure = true;
+  smtpOptions.auth = {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  };
+}
+
+// Force IPv4 to prevent ETIMEDOUT on platforms like Render that don't support outbound IPv6
+smtpOptions.tls = {
+  rejectUnauthorized: false
+};
+// Pass family: 4 to the underlying net.Socket to avoid IPv6 timeouts
+smtpOptions.family = 4;
+
+const transporter = nodemailer.createTransport(smtpOptions);
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('[EMAIL SERVICE] transporter verification failed:', error);
+  } else {
+    console.log('[EMAIL SERVICE] transporter is ready');
   }
 });
 
@@ -59,7 +93,7 @@ const sendOTPEmail = async (email, otp, type) => {
     }
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
       to: email,
       subject,
       html: `
