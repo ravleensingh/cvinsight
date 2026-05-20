@@ -278,18 +278,11 @@ router.post('/signup', signupValidation, async (req, res) => {
     }
 
     const hashedPassword = await hashPassword(password);
-    const otp = await createOTP(normalizedEmail, 'signup');
-
-    await OTP.findOneAndUpdate(
-      { email: normalizedEmail, type: 'signup' },
-      {
-        metadata: {
-          email: normalizedEmail,
-          password: hashedPassword,
-          name: name.trim() || normalizedEmail.split('@')[0]
-        }
-      }
-    );
+    const otp = await createOTP(normalizedEmail, 'signup', {
+      email: normalizedEmail,
+      password: hashedPassword,
+      name: name.trim() || normalizedEmail.split('@')[0]
+    });
 
     const emailSent = await sendOTPEmail(normalizedEmail, otp, 'signup');
 

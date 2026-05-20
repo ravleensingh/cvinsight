@@ -1,6 +1,8 @@
-const { Resend } = require('resend');
+const axios = require('axios');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'officialravleensingh@gmail.com';
+const BREVO_SENDER_NAME = 'CVInsight';
 
 const sendOTPEmail = async (email, otp, type) => {
   try {
@@ -52,11 +54,23 @@ const sendOTPEmail = async (email, otp, type) => {
         message = `Your verification code is: ${otp}. This code will expire in 10 minutes.`;
     }
 
-    const { error } = await resend.emails.send({
-      from: 'CVInsight <onboarding@resend.dev>',
-      to: email,
+    if (!BREVO_API_KEY) {
+      console.error('Brevo API key is not defined. Set BREVO_API_KEY in environment variables.');
+      return false;
+    }
+
+    const payload = {
+      sender: {
+        name: BREVO_SENDER_NAME,
+        email: BREVO_SENDER_EMAIL
+      },
+      to: [
+        {
+          email
+        }
+      ],
       subject,
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">CVInsight</h2>
           <p>Hello,</p>
@@ -68,16 +82,27 @@ const sendOTPEmail = async (email, otp, type) => {
           <p>Best regards,<br>CVInsight Team</p>
         </div>
       `
+    };
+
+    const response = await axios.post('https://api.brevo.com/v3/smtp/email', payload, {
+      headers: {
+        'api-key': BREVO_API_KEY,
+        'Content-Type': 'application/json'
+      }
     });
 
-    if (error) {
-      console.error('Email sending failed with Resend API error:', error);
-      return false;
+    if (response.status >= 200 && response.status < 300) {
+      return true;
     }
 
-    return true;
+    console.error('Brevo email request failed:', response.data || response.statusText);
+    return false;
   } catch (error) {
-    console.error('Email sending failed:', error);
+    if (error.response) {
+      console.error('Brevo response error:', error.response.status, error.response.data);
+    } else {
+      console.error('Email sending failed:', error.message || error);
+    }
     return false;
   }
 };
