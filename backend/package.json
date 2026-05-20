@@ -24,8 +24,8 @@
     "mongodb": "^6.20.0",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
-    "nodemailer": "^6.10.1",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "resend": "^6.12.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
