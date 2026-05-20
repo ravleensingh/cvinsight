@@ -94,7 +94,7 @@ npm install
 Create a `.env` file in the `backend/` directory:
 
 ```env
-PORT=5000
+PORT=5001
 MONGO_URI=your_mongodb_connection_string
 CLIENT_URL=http://localhost:3000
 
@@ -112,7 +112,7 @@ EMAIL_FROM=CVInsight <your_email@gmail.com>
 # Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/auth/google/callback
+GOOGLE_REDIRECT_URI=http://localhost:5001/api/auth/google/callback
 
 # Evaluation Engine Configuration
 MODEL_PROVIDER=groq
@@ -124,7 +124,7 @@ GROQ_API_KEY=your_api_key
 Create a `.env.local` file in the `frontend/` directory:
 
 ```env
-NEXT_PUBLIC_BACKEND_URL=http://localhost:5000/api
+NEXT_PUBLIC_BACKEND_URL=http://localhost:5001
 ```
 
 ### 3. Run the Application
@@ -149,5 +149,17 @@ The application will now be accessible at `http://localhost:3000`.
 - **Database Indexing:** Ensure MongoDB collections are properly indexed for performance, especially on email fields and resume references.
 - **Rate Limiting:** The backend utilizes `express-rate-limit` to prevent brute force attacks on authentication and evaluation endpoints.
 - **Black-Box Processing:** The system operates under a strict "No-Trace" policy for the end-user. The evaluation algorithms process data server-side, and the user interface presents a native, professional analytics dashboard without exposing the underlying processing engine.
+
+## Production deployment notes
+
+For a Vercel frontend and Render backend, use these production variables:
+
+- Frontend (Vercel):
+  - `NEXT_PUBLIC_BACKEND_URL=https://cvinsight-d890.onrender.com`
+- Backend (Render):
+  - `CLIENT_URL=https://cvinsight-delta.vercel.app`
+  - `GOOGLE_REDIRECT_URI=https://cvinsight-d890.onrender.com/api/auth/google/callback`
+
+Make sure the exact redirect URI above is registered in Google Cloud Console under Authorized redirect URIs.
 # cartrends
 # cartrends

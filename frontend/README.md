@@ -28,6 +28,7 @@ Create `.env.local` with:
 NEXT_PUBLIC_BACKEND_URL=http://localhost:5001
 ```
 
+Note: the value should be the backend origin only, without a trailing `/api` path.
 ## Run
 
 ```bash

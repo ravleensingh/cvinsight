@@ -66,7 +66,7 @@ Create `.env` with values similar to:
 ```env
 PORT=5001
 MONGO_URI=
-FRONTEND_URL=http://localhost:3000
+CLIENT_URL=http://localhost:3000
 JWT_SECRET=
 JWT_REFRESH_SECRET=
 GOOGLE_CLIENT_ID=

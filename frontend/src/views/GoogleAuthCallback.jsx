@@ -34,6 +34,7 @@ export default function GoogleAuthCallback() {
         setSession({ token, refreshToken, user, rememberMe })
         navigate("/dashboard", { replace: true })
       } catch (error) {
+        console.error('[AUTH ERROR] GoogleAuthCallback error:', error)
         navigate("/login?error=oauth_callback_error", { replace: true })
       }
     }

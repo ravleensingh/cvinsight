@@ -61,13 +61,14 @@ router.get('/google', (req, res) => {
 });
 
 router.get('/google/callback', async (req, res) => {
-  const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
 
   try {
     const { code, error } = req.query;
 
     if (error || !code) {
-      return res.redirect(`${frontendUrl}/login?error=oauth_denied`);
+      const redirectError = error === 'access_denied' ? 'oauth_denied' : (error ? 'oauth_callback_error' : 'oauth_denied');
+      return res.redirect(`${frontendUrl}/login?error=${redirectError}`);
     }
 
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
