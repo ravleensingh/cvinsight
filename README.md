@@ -159,6 +159,7 @@ For a Vercel frontend and Render backend, use these production variables:
 - Backend (Render):
   - `CLIENT_URL=https://cvinsight-delta.vercel.app`
   - `GOOGLE_REDIRECT_URI=https://cvinsight-d890.onrender.com/api/auth/google/callback`
+  - `ALLOW_VERCEL_PREVIEWS=true`
 
 Make sure the exact redirect URI above is registered in Google Cloud Console under Authorized redirect URIs.
 # cartrends

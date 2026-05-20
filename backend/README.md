@@ -83,7 +83,10 @@ EMAIL_USER=
 EMAIL_PASS=
 EMAIL_FROM=
 FORCE_SECURE_COOKIES=true
+ALLOW_VERCEL_PREVIEWS=true
 ```
+
+When your frontend is deployed to Vercel, `CLIENT_URL` should be set to `https://cvinsight-delta.vercel.app` and `ALLOW_VERCEL_PREVIEWS=true` can be used to allow cross-domain requests from all Vercel app origins.
 
 When deploying cross-domain (frontend on Vercel, backend on Render), make sure `NODE_ENV=production` or set `FORCE_SECURE_COOKIES=true` so OAuth cookies are created with:
 

@@ -21,6 +21,7 @@ const ACCOUNT_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 function parseAllowedOrigins() {
   const configuredOrigins = [
     process.env.CLIENT_URL,
+    process.env.FRONTEND_URL,
     process.env.ADMIN_FRONTEND_URL,
     ...(process.env.ADDITIONAL_ALLOWED_ORIGINS || '')
       .split(',')
@@ -39,6 +40,10 @@ function parseAllowedOrigins() {
 
   if (process.env.ALLOW_VERCEL_PREVIEWS === 'true') {
     parsedOrigins.push(/\.vercel\.app$/);
+  }
+
+  if (!process.env.CLIENT_URL && !process.env.FRONTEND_URL && process.env.NODE_ENV === 'production') {
+    parsedOrigins.push('https://cvinsight-delta.vercel.app');
   }
 
   return parsedOrigins;
