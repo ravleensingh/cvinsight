@@ -61,7 +61,7 @@ router.get('/google', (req, res) => {
 });
 
 router.get('/google/callback', async (req, res) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
 
   try {
     const { code, error } = req.query;

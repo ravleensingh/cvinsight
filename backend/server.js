@@ -20,7 +20,7 @@ const ACCOUNT_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 function parseAllowedOrigins() {
   const configuredOrigins = [
-    process.env.FRONTEND_URL,
+    process.env.CLIENT_URL,
     process.env.ADMIN_FRONTEND_URL,
     ...(process.env.ADDITIONAL_ALLOWED_ORIGINS || '')
       .split(',')
