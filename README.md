@@ -162,5 +162,3 @@ For a Vercel frontend and Render backend, use these production variables:
   - `ALLOW_VERCEL_PREVIEWS=true`
 
 Make sure the exact redirect URI above is registered in Google Cloud Console under Authorized redirect URIs.
-# cartrends
-# cartrends
