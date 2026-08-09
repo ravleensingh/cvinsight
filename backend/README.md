@@ -1,6 +1,6 @@
 # CVInsight Backend
 
-Backend API for `CVInsight`, a resume screening system that evaluates uploaded resumes against a pasted job description and supports secure shortlist decisions.
+Backend API for `CVInsight`, a resume screening system that evaluates uploaded resumes against a direct role input or pasted job description and supports secure shortlist decisions.
 
 ## Current Scope
 
@@ -10,9 +10,12 @@ Backend API for `CVInsight`, a resume screening system that evaluates uploaded r
 - Refresh-token aware session handling
 - Account deletion scheduling with OTP confirmation
 - Resume upload and PDF parsing
-- Resume screening against a pasted job description
+- Resume screening against a pasted job description using trained local ML models plus deterministic fit signals
+- Model switching through request payload or `RESUME_ML_MODEL`
+- Weak-input ML fallback so sparse resume/job payloads do not dominate the final score
 - Requirement inference from raw job description text
 - Shortlist scoring and screening history persistence
+- Groq-backed narrative generation after structured screening is complete
 
 ## Stack
 
@@ -23,7 +26,8 @@ Backend API for `CVInsight`, a resume screening system that evaluates uploaded r
 - Nodemailer
 - Multer
 - PDF parsing
-- Groq-compatible model integration through OpenAI-style chat completions
+- Local Python/scikit-learn resume scoring models
+- Groq-compatible text generation through OpenAI-style chat completions
 
 ## Main Routes
 
@@ -53,11 +57,16 @@ Backend API for `CVInsight`, a resume screening system that evaluates uploaded r
 
 The screening pipeline does not rely only on listed skills. It also considers:
 
+- local ML resume-job fit when the payload is strong enough
 - role alignment from JD and resume text overlap
 - project relevance
 - resume quality signals
 - ATS-style structure and readability
 - education and experience requirements
+
+Groq is intentionally kept out of resume scoring and disabled for resume parsing by default. It is only used to generate the final narrative explanation from structured ML and heuristic screening results.
+
+`ml3` is the default primary fit model. If resume/job input is too short for reliable ML scoring, the backend records the ML output as a supporting signal and uses deterministic screening for the primary score.
 
 ## Environment Variables
 
@@ -77,6 +86,11 @@ MODEL_BASE_URL=https://api.groq.com/openai/v1/chat/completions
 MODEL_NAME=llama-3.3-70b-versatile
 MODEL_API_KEY=
 GROQ_API_KEY=
+RESUME_ML_MODEL=ml3
+ML_MODELS_DIR=../ml_models
+ML_PYTHON_PATH=../ml_models/.venv/bin/python
+ML_SCORING_TIMEOUT_MS=45000
+ENABLE_MODEL_RESUME_EXTRACTION=false
 EMAIL_HOST=
 EMAIL_PORT=
 EMAIL_USER=
@@ -101,6 +115,22 @@ This is required for the browser to accept backend cookies from a different doma
 npm install
 npm run dev
 ```
+
+## Test
+
+```bash
+npm test
+```
+
+The current test suite covers deterministic role-preset expansion, primary ML scoring behavior, and weak-input fallback behavior.
+
+## Local ML Runtime Requirements
+
+The backend scoring bridge launches `ml_models/score_resume.py`. For local development, make sure:
+
+- `ML_MODELS_DIR` points to the `ml_models/` folder.
+- `ML_PYTHON_PATH` points to a Python environment with `ml_models/requirements.txt` installed.
+- `ml_models/registry/models.json` and the selected `model.joblib` artifact exist locally.
 
 ## Notes
 

@@ -7,13 +7,13 @@ const { parseResumeFile, mergeParsedData } = require('../services/resumeParsingS
 const {
   screenResumeAgainstJobDescription,
   normalizeJobDescription,
-  inferJobRequirementsFromDescription
+  inferJobRequirementsFromDescription,
+  applyRolePreset
 } = require('../services/screeningService');
 const {
-  generateScreeningNarrative,
-  enrichJobDescriptionInput,
-  evaluateResumeQualityWithModel
+  generateScreeningNarrative
 } = require('../services/insightService');
+const { scoreResumeWithML } = require('../services/mlScoringService');
 
 const storage = multer.memoryStorage();
 const upload = multer({
@@ -66,41 +66,34 @@ async function buildAdHocJobDescription(payload = {}) {
     return null;
   }
 
-  const modelEnrichment = await enrichJobDescriptionInput({
-    jobTitle: title,
-    company,
-    description: directDescription,
-    roleDetails,
-    requirementsNotes
-  });
-
-  const modelData = modelEnrichment.data || {};
-  const description = `${modelData.description || directDescription}`.trim();
+  const description = directDescription || [
+    title && `Role: ${title}${company ? ` at ${company}` : ''}.`,
+    roleDetails && `Role details: ${roleDetails}`,
+    requirementsNotes && `Requirements and expectations: ${requirementsNotes}`
+  ].filter(Boolean).join(' ');
 
   if (!description) {
     return null;
   }
 
   const enrichedRequirements = inferJobRequirementsFromDescription(description, {
-    requiredSkills: toArray(payload.requiredSkills).length ? toArray(payload.requiredSkills) : toArray(modelData.requiredSkills),
-    preferredSkills: toArray(payload.preferredSkills).length ? toArray(payload.preferredSkills) : toArray(modelData.preferredSkills),
-    keywords: toArray(payload.keywords).length ? toArray(payload.keywords) : toArray(modelData.keywords),
-    requirements: toArray(payload.requirements).length ? toArray(payload.requirements) : toArray(modelData.requirements),
-    educationRequirements: toArray(payload.educationRequirements).length
-      ? toArray(payload.educationRequirements)
-      : toArray(modelData.educationRequirements),
-    minimumExperience: Number(payload.minimumExperience || modelData.minimumExperience || 0)
+    requiredSkills: toArray(payload.requiredSkills),
+    preferredSkills: toArray(payload.preferredSkills),
+    keywords: toArray(payload.keywords),
+    requirements: toArray(payload.requirements),
+    educationRequirements: toArray(payload.educationRequirements),
+    minimumExperience: Number(payload.minimumExperience || 0)
   });
 
   return normalizeJobDescription({
     id: 'ad-hoc-jd',
-    title: modelData.title || title || 'Custom Job Description',
-    company: modelData.company || company,
+    title: title || 'Custom Job Description',
+    company,
     description,
     roleDetails,
     requirementsNotes,
     ...enrichedRequirements,
-    autoShortlistThreshold: Number(payload.autoShortlistThreshold || modelData.autoShortlistThreshold || 70)
+    autoShortlistThreshold: Number(payload.autoShortlistThreshold || 70)
   });
 }
 
@@ -345,19 +338,19 @@ router.post('/:id/screen', auth, async (req, res) => {
       });
     }
 
-    const aiQualityAssessmentResult = await evaluateResumeQualityWithModel(resume, resolvedJobDescription);
-    const aiQualityAssessment = aiQualityAssessmentResult.success ? aiQualityAssessmentResult.data : null;
-
-    const screeningResult = screenResumeAgainstJobDescription(resume, resolvedJobDescription, {
-      aiAssessment: aiQualityAssessment
+    const scoringJobDescription = applyRolePreset(resolvedJobDescription);
+    const mlEvaluation = await scoreResumeWithML(resume, scoringJobDescription, {
+      modelId: req.body.modelId || req.body.mlModelId
     });
-    const narrativeResult = await generateScreeningNarrative(resume, resolvedJobDescription, screeningResult);
+
+    const screeningResult = screenResumeAgainstJobDescription(resume, scoringJobDescription, {
+      mlEvaluation
+    });
+    const narrativeResult = await generateScreeningNarrative(resume, scoringJobDescription, screeningResult);
     const analysis = narrativeResult.success ? narrativeResult.analysis : '';
 
     if (analysis) {
       screeningResult.analysis = analysis;
-    } else if (aiQualityAssessment?.summary) {
-      screeningResult.analysis = aiQualityAssessment.summary;
     }
 
     if (!narrativeResult.success && narrativeResult.error) {
@@ -370,6 +363,7 @@ router.post('/:id/screen', auth, async (req, res) => {
     resume.latestScreening = {
       jobDescriptionId: screeningResult.jobDescriptionId,
       jobTitle: screeningResult.jobTitle,
+      evaluationProvider: screeningResult.evaluationProvider,
       overallScore: screeningResult.overallScore,
       shortlistThreshold: screeningResult.shortlistThreshold,
       isShortlisted: screeningResult.isShortlisted,
@@ -384,6 +378,7 @@ router.post('/:id/screen', auth, async (req, res) => {
       concerns: screeningResult.concerns,
       resumePositives: screeningResult.resumePositives,
       resumeNegatives: screeningResult.resumeNegatives,
+      mlEvaluation: screeningResult.mlEvaluation,
       recommendation: screeningResult.recommendation,
       analysis: screeningResult.analysis || analysis || '',
       screenedAt: new Date()
@@ -392,8 +387,10 @@ router.post('/:id/screen', auth, async (req, res) => {
       {
         jobDescriptionId: screeningResult.jobDescriptionId,
         jobTitle: screeningResult.jobTitle,
+        evaluationProvider: screeningResult.evaluationProvider,
         overallScore: screeningResult.overallScore,
         isShortlisted: screeningResult.isShortlisted,
+        mlModelId: screeningResult.mlEvaluation?.modelId || null,
         screenedAt: new Date()
       },
       ...(resume.screeningHistory || [])

@@ -522,10 +522,11 @@ async function parseResumeFile(file, originalName = '') {
 async function parseResumeText(rawText = '', originalName = '', options = {}) {
   const parserNotes = Array.isArray(options.parserNotes) ? options.parserNotes : [];
   const heuristicData = buildHeuristicParsedData(rawText, originalName);
+  const shouldUseModelExtraction = options.useModel === true || process.env.ENABLE_MODEL_RESUME_EXTRACTION === 'true';
 
-  const modelExtraction = options.useModel === false
-    ? { success: false, error: 'Model-assisted extraction was skipped' }
-    : await extractResumeDataWithModel({ rawText, originalName });
+  const modelExtraction = shouldUseModelExtraction
+    ? await extractResumeDataWithModel({ rawText, originalName })
+    : { success: false, error: 'Model-assisted resume extraction is disabled' };
   const parsedData = modelExtraction.success
     ? mergeParsedData(heuristicData, modelExtraction.data)
     : heuristicData;
@@ -537,7 +538,7 @@ async function parseResumeText(rawText = '', originalName = '', options = {}) {
     nextParserNotes.push('Resume text extraction was partial, so some sections may be incomplete.');
   }
 
-  if (!modelExtraction.success && rawText.length >= 250) {
+  if (shouldUseModelExtraction && !modelExtraction.success && rawText.length >= 250) {
     nextParserNotes.push(`Model-assisted resume extraction was unavailable: ${modelExtraction.error}`);
   }
 

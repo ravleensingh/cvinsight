@@ -267,9 +267,14 @@ function applyRolePreset(jobDescription = {}) {
     return normalizeJobDescription(jobDescription);
   }
 
+  const currentDescription = `${jobDescription.description || ''}`.trim();
+  const shouldUsePresetDescription = !currentDescription || currentDescription.length < 80;
+
   return normalizeJobDescription({
     ...jobDescription,
-    description: jobDescription.description || preset.description,
+    description: shouldUsePresetDescription
+      ? [currentDescription, preset.description].filter(Boolean).join(' ')
+      : currentDescription,
     requiredSkills: mergeUniqueValues(preset.requiredSkills, jobDescription.requiredSkills || jobDescription.skills || []),
     preferredSkills: mergeUniqueValues(preset.preferredSkills, jobDescription.preferredSkills || []),
     keywords: mergeUniqueValues(preset.keywords, jobDescription.keywords || [])
@@ -534,10 +539,33 @@ function scoreRoleAlignment(parsedData = {}, jobDescription = {}, resumeText = '
   return clampScore(calculateTokenCoverage(jdText, candidateText) * 1.5);
 }
 
+function getMlFitScore(mlEvaluation = null) {
+  if (!mlEvaluation || mlEvaluation.success === false) {
+    return null;
+  }
+
+  if (mlEvaluation.inputQuality?.useAsPrimarySignal === false) {
+    return null;
+  }
+
+  if (typeof mlEvaluation.fitScore === 'number') {
+    return clampScore(mlEvaluation.fitScore);
+  }
+
+  if (typeof mlEvaluation.fitProbability === 'number') {
+    return clampScore(mlEvaluation.fitProbability * 100);
+  }
+
+  return null;
+}
+
 function screenResumeAgainstJobDescription(resume, jobDescription, options = {}) {
   const jd = applyRolePreset(jobDescription);
   const parsedData = resume.parsedData || {};
   const aiAssessment = options.aiAssessment || null;
+  const mlEvaluation = options.mlEvaluation || null;
+  const mlFitScore = getMlFitScore(mlEvaluation);
+  const mlUsedForPrimaryScoring = mlFitScore !== null;
   const resumeText = normalizeWhitespace(
     [
       resume.rawText || '',
@@ -595,10 +623,12 @@ function screenResumeAgainstJobDescription(resume, jobDescription, options = {})
   const projectRelevance = scoreProjectRelevance(parsedData.projects || [], jd);
   const resumeQuality = scoreResumeQuality(parsedData, resumeText);
   const atsReadiness = scoreAtsReadiness(resume, parsedData, resumeText);
-  const roleAlignmentScore = averageScores(
-    heuristicRoleAlignmentScore,
-    aiAssessment?.roleFitScore
-  );
+  const roleAlignmentScore = mlFitScore !== null
+    ? clampScore((mlFitScore * 0.65) + (heuristicRoleAlignmentScore * 0.35))
+    : averageScores(
+      heuristicRoleAlignmentScore,
+      aiAssessment?.roleFitScore
+    );
   const resumeQualityScore = averageScores(
     resumeQuality.score,
     aiAssessment?.resumeQualityScore
@@ -608,17 +638,30 @@ function screenResumeAgainstJobDescription(resume, jobDescription, options = {})
     aiAssessment?.atsReadinessScore
   );
 
-  const overallScore = Math.round(
-    (requiredSkillScore * 0.22) +
-    (preferredSkillScore * 0.08) +
-    (keywordScore * 0.09) +
-    (experienceScore * 0.09) +
-    (educationScore * 0.06) +
-    (roleAlignmentScore * 0.14) +
-    (projectRelevance.score * 0.12) +
-    (resumeQualityScore * 0.11) +
-    (atsReadinessScore * 0.09)
-  );
+  const overallScore = mlFitScore !== null
+    ? Math.round(
+      (requiredSkillScore * 0.18) +
+      (preferredSkillScore * 0.06) +
+      (keywordScore * 0.07) +
+      (experienceScore * 0.08) +
+      (educationScore * 0.05) +
+      (roleAlignmentScore * 0.12) +
+      (projectRelevance.score * 0.10) +
+      (resumeQualityScore * 0.10) +
+      (atsReadinessScore * 0.08) +
+      (mlFitScore * 0.16)
+    )
+    : Math.round(
+      (requiredSkillScore * 0.22) +
+      (preferredSkillScore * 0.08) +
+      (keywordScore * 0.09) +
+      (experienceScore * 0.09) +
+      (educationScore * 0.06) +
+      (roleAlignmentScore * 0.14) +
+      (projectRelevance.score * 0.12) +
+      (resumeQualityScore * 0.11) +
+      (atsReadinessScore * 0.09)
+    );
 
   const shortlistThreshold = jd.autoShortlistThreshold || 70;
   const effectiveRequiredSkillFloor = isFresherFriendlyRole(jd) ? 40 : 50;
@@ -629,6 +672,7 @@ function screenResumeAgainstJobDescription(resume, jobDescription, options = {})
     ...(matchedPreferredSkills.length > 0 ? [`Matched preferred skills: ${matchedPreferredSkills.slice(0, 3).join(', ')}`] : []),
     ...(yearsOfExperience >= jd.minimumExperience && jd.minimumExperience > 0 ? [`Meets experience requirement: ${yearsOfExperience} years`] : []),
     ...projectRelevance.matchedProjects.slice(0, 2).map(project => `Relevant project detected: ${project.title}`),
+    ...(mlEvaluation?.success && mlEvaluation.prediction && mlUsedForPrimaryScoring ? [`ML model prediction: ${mlEvaluation.prediction}`] : []),
     ...(aiAssessment?.strengths || []).slice(0, 3),
     ...((!yearsOfExperience && (parsedData.projects || []).length >= 2)
       ? ['Relevant projects help demonstrate readiness despite limited formal experience.']
@@ -643,6 +687,11 @@ function screenResumeAgainstJobDescription(resume, jobDescription, options = {})
     ...projectRelevance.risks.slice(0, 1),
     ...resumeQuality.risks.slice(0, 1),
     ...atsReadiness.risks.slice(0, 1),
+    ...(!mlEvaluation?.success && mlEvaluation?.error ? [`ML scoring unavailable: ${mlEvaluation.error}`] : []),
+    ...(mlEvaluation?.success && mlFitScore !== null && mlFitScore < 45 ? ['ML fit probability is low for this role.'] : []),
+    ...(mlEvaluation?.success && mlEvaluation.inputQuality?.useAsPrimarySignal === false
+      ? ['ML score was recorded as a supporting signal only because the resume or job input was too limited.']
+      : []),
     ...(aiAssessment?.risks || []).slice(0, 3)
   ];
 
@@ -665,6 +714,7 @@ function screenResumeAgainstJobDescription(resume, jobDescription, options = {})
     jobDescriptionId: jd.id,
     jobTitle: jd.title,
     company: jd.company,
+    evaluationProvider: mlUsedForPrimaryScoring ? 'ml' : 'heuristic',
     overallScore,
     shortlistThreshold,
     isShortlisted,
@@ -690,18 +740,43 @@ function screenResumeAgainstJobDescription(resume, jobDescription, options = {})
       heuristicRoleAlignmentScore,
       heuristicResumeQualityScore: resumeQuality.score,
       heuristicAtsReadinessScore: atsReadiness.score,
+      mlFitScore,
       fresherPotentialScore: aiAssessment?.fresherPotentialScore || null
     },
     qualitySignals: [...new Set([
+      ...(mlEvaluation?.success
+        ? [`ML evaluation (${mlEvaluation.modelId || 'selected model'}): ${mlEvaluation.prediction || 'completed'}${typeof mlEvaluation.fitScore === 'number' ? ` with ${clampScore(mlEvaluation.fitScore)}% fit score` : ''}${mlUsedForPrimaryScoring ? '' : ' (supporting signal only)'}.`]
+        : []),
       ...(aiAssessment?.summary ? [aiAssessment.summary] : [])
     ])],
     riskSignals: [...new Set([
       ...resumeQuality.risks,
       ...atsReadiness.risks,
       ...projectRelevance.risks,
-      ...((aiAssessment?.risks || []).slice(0, 3))
+      ...((aiAssessment?.risks || []).slice(0, 3)),
+      ...(mlEvaluation?.success && mlEvaluation.inputQuality?.useAsPrimarySignal === false
+        ? (mlEvaluation.inputQuality.warnings || [])
+        : [])
     ])],
     matchedProjects: projectRelevance.matchedProjects,
+    mlEvaluation: mlEvaluation
+      ? {
+        success: mlEvaluation.success !== false,
+        modelId: mlEvaluation.modelId || null,
+        algorithm: mlEvaluation.algorithm || null,
+        taskType: mlEvaluation.taskType || null,
+        prediction: mlEvaluation.prediction || null,
+        probabilities: mlEvaluation.probabilities || {},
+        confidence: typeof mlEvaluation.confidence === 'number' ? mlEvaluation.confidence : null,
+        rawFitProbability: typeof mlEvaluation.rawFitProbability === 'number' ? mlEvaluation.rawFitProbability : null,
+        calibratedFitProbability: typeof mlEvaluation.calibratedFitProbability === 'number' ? mlEvaluation.calibratedFitProbability : null,
+        decisionThreshold: typeof mlEvaluation.decisionThreshold === 'number' ? mlEvaluation.decisionThreshold : null,
+        fitScore: typeof mlEvaluation.fitScore === 'number' ? clampScore(mlEvaluation.fitScore) : null,
+        usedForPrimaryScoring: mlUsedForPrimaryScoring,
+        inputQuality: mlEvaluation.inputQuality || null,
+        error: mlEvaluation.error || null
+      }
+      : null,
     strengths,
     concerns,
     resumePositives,
@@ -741,6 +816,7 @@ function rankResumesForJobDescription(resumes = [], jobDescription, options = {}
 module.exports = {
   normalizeJobDescription,
   inferJobRequirementsFromDescription,
+  applyRolePreset,
   screenResumeAgainstJobDescription,
   rankResumesForJobDescription
 };

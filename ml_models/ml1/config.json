@@ -1,0 +1,22 @@
+{
+  "model_id": "ml1",
+  "display_name": "ML1 Resume Category Classifier",
+  "task_type": "resume_category_classification",
+  "algorithm": "tfidf_logistic_regression",
+  "random_state": 42,
+  "test_size": 0.2,
+  "dataset": {
+    "source_type": "huggingface",
+    "name": "Darshan-04/Resume-classification",
+    "split": "train",
+    "text_columns": ["Resume_str", "Resume_html"],
+    "target_column": "Category"
+  },
+  "vectorizer": {
+    "max_features": 60000,
+    "min_df": 2,
+    "ngram_range": [1, 2]
+  },
+  "notes": "Dataset 1 in the brief is a Hugging Face resume dataset search page, not a single dataset. This config uses Darshan-04/Resume-classification as the initial selected dataset from that catalog. Change dataset.name and columns here if you select a different Hugging Face resume dataset later."
+}
+

@@ -1,0 +1,23 @@
+{
+  "model_id": "ml2",
+  "display_name": "ML2 Structured Resume Category Classifier",
+  "task_type": "resume_category_classification",
+  "algorithm": "tfidf_complement_nb",
+  "random_state": 42,
+  "test_size": 0.2,
+  "dataset": {
+    "source_type": "huggingface",
+    "name": "C0ldSmi1e/resume-dataset",
+    "split": "train",
+    "eval_split": "test",
+    "use_eval_split": false,
+    "text_columns": ["text", "skills", "education", "experience"],
+    "target_column": "category"
+  },
+  "vectorizer": {
+    "max_features": 70000,
+    "min_df": 2,
+    "ngram_range": [1, 2]
+  },
+  "notes": "This track uses the explicit C0ldSmi1e/resume-dataset source from the brief. ComplementNB is a strong classical baseline for text category classification and trains quickly."
+}

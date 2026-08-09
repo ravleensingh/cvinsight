@@ -1,10 +1,10 @@
 # CVInsight
 
-CVInsight is an advanced, full-stack Algorithmic Resume Screening System designed to automate and enhance the evaluation of candidate profiles against specific Job Descriptions. Built with modern web technologies and powered by proprietary natural language processing (NLP) heuristics, it provides precise, contextual, and highly analytical candidate assessments.
+CVInsight is a full-stack resume screening system that evaluates uploaded resumes against direct role inputs or complete job descriptions. The current version uses trained local ML models for structured resume evaluation, deterministic screening safeguards for sparse inputs, and Groq only for user-facing narrative text after scoring.
 
 ## System Overview
 
-The core objective of CVInsight is to eliminate the manual overhead of resume screening while maintaining a high degree of accuracy and fairness. Unlike basic keyword-matching applicant tracking systems, CVInsight uses an intelligent rule-based engine to understand the semantic relevance of a candidate's experience, education, and project portfolio. 
+The core objective of CVInsight is to reduce manual resume screening overhead while keeping evaluation explainable and maintainable. Unlike basic keyword-matching applicant tracking systems, CVInsight combines local ML fit/category models with deterministic role-alignment, skill, project, experience, ATS, and resume-quality signals.
 
 The application is built with a strong emphasis on security, maintainable architecture, and edge-case handling.
 
@@ -12,7 +12,9 @@ The application is built with a strong emphasis on security, maintainable archit
 
 ### 1. Advanced Screening Engine
 - **Context-Aware Evaluation:** Dynamically scores resumes against either a direct role title (e.g., "Full Stack Developer") or a comprehensive job description.
-- **Realistic Scoring Algorithms:** Evaluates candidates based on Skill Match, Role Alignment, Project Relevance, Experience Fit, ATS Readiness, and Resume Quality.
+- **Local ML Evaluation:** Uses four independently trained ML tracks under `ml_models/`, with `ml3` as the default resume-job fit model.
+- **Realistic Scoring Algorithms:** Evaluates candidates based on ML fit, Skill Match, Role Alignment, Project Relevance, Experience Fit, ATS Readiness, and Resume Quality.
+- **Safe Fallbacks:** Treats weak/short ML inputs as supporting signals only and falls back to deterministic screening for the primary score.
 - **Fairness for Entry-Level Candidates:** Incorporates "Fresher Potential" heuristics that prevent candidates from being unfairly penalized for lacking formal work experience if they demonstrate strong foundational projects and education.
 - **Actionable Insights:** Generates real, highly contextual strengths and concerns, providing actionable feedback on a candidate's profile.
 
@@ -44,7 +46,10 @@ The application is built with a strong emphasis on security, maintainable archit
 - **Security:** Helmet, CORS, and Express Rate Limit
 
 ### Evaluation Engine
-- **Evaluation Provider:** External Evaluation API endpoint
+- **Evaluation Provider:** Local trained ML models with deterministic screening fallback
+- **Narrative Provider:** Groq-compatible text generation for summaries, strengths, concerns, and explanation text after scoring
+- **Default Fit Model:** `ml3`, trained on `batuhanmtl/job_resume_fit`
+- **Model Governance:** `ml_models/MODEL_GOVERNANCE.md`
 
 ## Project Architecture
 
@@ -59,22 +64,31 @@ resume_analyser/
 │   ├── services/        # Core business logic (Screening, Parsing, Email)
 │   ├── templates/       # HTML email templates
 │   └── server.js        # Application entry point
-└── frontend/
+├── frontend/
     ├── src/
     │   ├── app/         # Next.js entry points
     │   ├── components/  # Reusable UI components
     │   ├── utils/       # API clients and auth helpers
     │   └── views/       # Main screen components (Dashboard, ResumeScreen)
-    ├── package.json
-    └── tailwind.config.js
+│   ├── package.json
+│   └── tailwind.config.js
+└── ml_models/
+    ├── ml1/             # Independent resume category model track
+    ├── ml2/             # Independent resume category model track
+    ├── ml3/             # Resume-job fit model track
+    ├── ml4/             # Structured resume role-family model track
+    ├── score_resume.py  # Backend scoring entrypoint
+    └── validate_runtime_scoring.py
 ```
 
 ## Local Development Setup
 
 ### Prerequisites
 - Node.js (v18+)
+- Python 3.10+
 - MongoDB database (local or Atlas)
-- Evaluation API Key
+- Local ML model artifacts under `ml_models/`
+- Groq API Key for narrative text generation
 - SMTP Mail Account (e.g., Gmail App Passwords)
 - Google Cloud Console Project (for OAuth credentials)
 
@@ -87,6 +101,20 @@ npm install
 
 cd ../frontend
 npm install
+
+cd ../ml_models
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+If model artifacts are not already present locally, train them with:
+
+```bash
+cd ml_models
+source .venv/bin/activate
+python train_all.py
+python validate_runtime_scoring.py
 ```
 
 ### 2. Environment Configuration
@@ -114,11 +142,18 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:5001/api/auth/google/callback
 
-# Evaluation Engine Configuration
+# Narrative Generation Configuration
 MODEL_PROVIDER=groq
 MODEL_BASE_URL=https://api.groq.com/openai/v1/chat/completions
 MODEL_NAME=llama-3.3-70b-versatile
 GROQ_API_KEY=your_api_key
+
+# Resume ML Scoring Configuration
+RESUME_ML_MODEL=ml3
+ML_MODELS_DIR=../ml_models
+ML_PYTHON_PATH=../ml_models/.venv/bin/python
+ML_SCORING_TIMEOUT_MS=45000
+ENABLE_MODEL_RESUME_EXTRACTION=false
 ```
 
 Create a `.env.local` file in the `frontend/` directory:
@@ -129,7 +164,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:5001
 
 ### 3. Run the Application
 
-Start the backend server (runs on port 5000 by default):
+Start the backend server (runs on port 5001 by default):
 ```bash
 cd backend
 npm run dev
@@ -143,12 +178,31 @@ npm run dev
 
 The application will now be accessible at `http://localhost:3000`.
 
+### 4. Verification
+
+Run the main checks before committing or deploying:
+
+```bash
+cd backend
+npm test
+
+cd ../frontend
+npm run lint
+npm run build
+
+cd ../ml_models
+source .venv/bin/activate
+python validate_runtime_scoring.py
+python compare_all.py
+```
+
 ## Production Deployment and Security Considerations
 
 - **Environment Variables:** Never commit `.env` files. The project includes a `.gitignore` to prevent accidental exposure of sensitive keys.
 - **Database Indexing:** Ensure MongoDB collections are properly indexed for performance, especially on email fields and resume references.
 - **Rate Limiting:** The backend utilizes `express-rate-limit` to prevent brute force attacks on authentication and evaluation endpoints.
-- **Black-Box Processing:** The system operates under a strict "No-Trace" policy for the end-user. The evaluation algorithms process data server-side, and the user interface presents a native, professional analytics dashboard without exposing the underlying processing engine.
+- **Model Artifacts:** Raw datasets, trained `model.joblib` files, generated metrics, and visualizations are intentionally git-ignored. Deployments must provision the required artifacts listed in `ml_models/MODEL_GOVERNANCE.md`.
+- **Groq Scope:** Groq must remain outside resume scoring. It is used only for final narrative generation after ML/heuristic screening is complete.
 
 ## Production deployment notes
 

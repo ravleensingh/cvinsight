@@ -1,0 +1,29 @@
+{
+  "model_id": "ml3",
+  "resume": {
+    "rawText": "Full stack developer with React, Node.js, Express, MongoDB, REST APIs, JWT authentication, and responsive UI experience.",
+    "parsedData": {
+      "name": "Sample Candidate",
+      "summary": "Builds web applications across frontend and backend systems.",
+      "skills": ["React", "Node.js", "Express", "MongoDB", "REST API", "JWT"],
+      "projects": [
+        {
+          "title": "Resume Screening App",
+          "description": "Built a full-stack screening dashboard with authentication and PDF parsing.",
+          "technologies": ["React", "Node.js", "MongoDB"]
+        }
+      ],
+      "experience": [],
+      "education": []
+    }
+  },
+  "jobDescription": {
+    "title": "Full Stack Developer",
+    "company": "CVInsight",
+    "description": "Build full-stack web applications with React, Node.js, Express, MongoDB, secure APIs, and authentication.",
+    "requiredSkills": ["React", "Node.js", "Express", "MongoDB", "REST API"],
+    "preferredSkills": ["JWT", "OAuth", "Tailwind CSS"],
+    "keywords": ["frontend", "backend", "api", "database", "authentication"]
+  }
+}
+

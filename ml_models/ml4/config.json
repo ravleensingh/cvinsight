@@ -1,0 +1,23 @@
+{
+  "model_id": "ml4",
+  "display_name": "ML4 Structured Resume Role-Family Classifier",
+  "task_type": "structured_resume_role_family",
+  "algorithm": "tfidf_extra_trees",
+  "random_state": 42,
+  "test_size": 0.2,
+  "dataset": {
+    "source_type": "kaggle_structured_resume",
+    "name": "suriyaganesh/resume-dataset-structured",
+    "kaggle_slug": "suriyaganesh/resume-dataset-structured",
+    "local_data_dir": "data/raw/ml4",
+    "text_columns": ["text"],
+    "target_column": "target"
+  },
+  "vectorizer": {
+    "max_features": 50000,
+    "min_df": 3,
+    "ngram_range": [1, 2]
+  },
+  "notes": "This track uses the normalized Kaggle structured resume tables. Since the dataset is not a direct fit-label dataset, the initial target is an inferred broad role family from latest experience title or person name. Treat it as a supporting signal, not the final hiring decision model."
+}
+

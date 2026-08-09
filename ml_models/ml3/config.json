@@ -1,0 +1,23 @@
+{
+  "model_id": "ml3",
+  "display_name": "ML3 Resume Job Fit Classifier",
+  "task_type": "resume_job_fit",
+  "algorithm": "tfidf_logistic_regression",
+  "random_state": 42,
+  "test_size": 0.2,
+  "dataset": {
+    "source_type": "huggingface",
+    "name": "batuhanmtl/job_resume_fit",
+    "split": "train",
+    "text_columns": ["resume_text", "job_text", "job_required_skills", "resume_skill_list"],
+    "target_column": "ai_match_score",
+    "positive_threshold": 70
+  },
+  "vectorizer": {
+    "max_features": 90000,
+    "min_df": 2,
+    "ngram_range": [1, 2]
+  },
+  "notes": "This track uses resume-job pairs and converts ai_match_score into a binary Fit/Not Fit label at threshold 70. The threshold is intentionally configurable because final product calibration should be based on validation behavior and UX expectations."
+}
+

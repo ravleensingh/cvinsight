@@ -34,6 +34,29 @@ const QUICK_ROLE_OPTIONS = [
   "DevOps Engineer",
 ]
 
+const ML_MODEL_OPTIONS = [
+  {
+    id: "ml3",
+    label: "ML3 resume-job fit",
+    note: "Recommended default for fit probability.",
+  },
+  {
+    id: "ml1",
+    label: "ML1 resume category",
+    note: "Compare resume-category classification behavior.",
+  },
+  {
+    id: "ml2",
+    label: "ML2 resume category",
+    note: "Compare alternate resume dataset behavior.",
+  },
+  {
+    id: "ml4",
+    label: "ML4 structured resume",
+    note: "Compare structured resume predictor behavior.",
+  },
+]
+
 function MetricCard({ label, value, tone = "slate" }) {
   const toneClasses = {
     red: "border-red-200 bg-red-50 dark:border-red-800/50 dark:bg-red-900/20",
@@ -56,6 +79,7 @@ export default function ResumeScreen() {
   const [resume, setResume] = useState(null)
   const [customJD, setCustomJD] = useState(INITIAL_CUSTOM_JD)
   const [evaluationMode, setEvaluationMode] = useState("simple")
+  const [selectedModelId, setSelectedModelId] = useState("ml3")
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [screening, setScreening] = useState(false)
@@ -114,6 +138,7 @@ export default function ResumeScreen() {
         jobDescriptionText: evaluationMode === "detailed" ? customJD.jobDescriptionText : "",
         roleDetails: customJD.roleDetails,
         screeningMode: evaluationMode,
+        mlModelId: selectedModelId,
       }
       const response = await resumeAPI.screen(id, payload)
       setResult(response.data.data)
@@ -282,8 +307,28 @@ export default function ResumeScreen() {
                   </div>
                 )}
 
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+                  <label className="mb-2 block text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    Evaluation model
+                  </label>
+                  <select
+                    value={selectedModelId}
+                    onChange={(event) => setSelectedModelId(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-transparent focus:ring-2 focus:ring-red-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                  >
+                    {ML_MODEL_OPTIONS.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    {ML_MODEL_OPTIONS.find((model) => model.id === selectedModelId)?.note}
+                  </p>
+                </div>
+
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  CVInsight will infer requirements from the details you provide in this {modeLabel} evaluation, enrich sparse role input when needed, and combine that with resume quality, project relevance, ATS readiness, and fresher potential.
+                  CVInsight will infer requirements from the details you provide in this {modeLabel} evaluation, score with the selected trained model, and combine that with resume quality, project relevance, ATS readiness, and fresher potential.
                 </p>
               </div>
             </div>
@@ -357,6 +402,9 @@ export default function ResumeScreen() {
                 <div className="grid w-full gap-4 md:grid-cols-2">
                   <MetricCard label="Required Skills Score" value={`${result.scoreBreakdown?.requiredSkillScore || 0}%`} tone="red" />
                   <MetricCard label="Role Alignment" value={`${result.scoreBreakdown?.roleAlignmentScore || 0}%`} tone="zinc" />
+                  {result.mlEvaluation?.fitScore !== null && result.mlEvaluation?.fitScore !== undefined && (
+                    <MetricCard label="ML Fit Score" value={`${result.mlEvaluation.fitScore}%`} tone="red" />
+                  )}
                   <MetricCard label="Project Relevance" value={`${result.scoreBreakdown?.projectRelevanceScore || 0}%`} tone="stone" />
                   <MetricCard label="ATS Readiness" value={`${result.scoreBreakdown?.atsReadinessScore || 0}%`} tone="slate" />
                   <MetricCard label="Resume Quality" value={`${result.scoreBreakdown?.resumeQualityScore || 0}%`} tone="slate" />
@@ -464,6 +512,31 @@ export default function ResumeScreen() {
                 <h3 className="mb-3 font-bold text-slate-900 dark:text-white">Screening Summary</h3>
                 <div className="rounded-xl border border-red-100 bg-red-50 p-6 leading-relaxed text-slate-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-slate-300">
                   <p className="mb-4 font-semibold text-red-700 dark:text-red-400">{result.recommendation}</p>
+
+                  {result.mlEvaluation && (
+                    <div className="mb-5 rounded-xl border border-slate-200 bg-white/70 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/20">
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        ML evaluation: {result.mlEvaluation.prediction || "completed"}
+                      </p>
+                      <p className="mt-1 text-slate-600 dark:text-slate-300">
+                        Model {result.mlEvaluation.modelId || "selected"}{result.mlEvaluation.algorithm ? ` (${result.mlEvaluation.algorithm})` : ""}
+                        {result.mlEvaluation.fitScore !== null && result.mlEvaluation.fitScore !== undefined ? ` scored ${result.mlEvaluation.fitScore}% fit.` : "."}
+                      </p>
+                      {result.mlEvaluation.usedForPrimaryScoring === false && (
+                        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                          ML was kept as a supporting signal only because the resume or job input was limited.
+                        </p>
+                      )}
+                      {result.mlEvaluation.rawFitProbability !== null && result.mlEvaluation.rawFitProbability !== undefined && (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Raw model fit probability: {Math.round(result.mlEvaluation.rawFitProbability * 100)}%
+                          {result.mlEvaluation.decisionThreshold !== null && result.mlEvaluation.decisionThreshold !== undefined
+                            ? `, decision threshold: ${Math.round(result.mlEvaluation.decisionThreshold * 100)}%.`
+                            : "."}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {result.analysis && (
                     <div className="mb-5 rounded-xl border border-red-200/70 bg-white/70 p-4 dark:border-red-800/40 dark:bg-slate-900/20">

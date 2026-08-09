@@ -1,0 +1,14 @@
+.venv/
+.cache/
+__pycache__/
+*.pyc
+.DS_Store
+
+data/raw/
+data/processed/
+artifacts/
+visualizations/
+registry/models.json
+
+.env
+.env.local

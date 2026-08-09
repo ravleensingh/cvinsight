@@ -64,6 +64,7 @@ const resumeSchema = new mongoose.Schema({
   latestScreening: {
     jobDescriptionId: String,
     jobTitle: String,
+    evaluationProvider: String,
     overallScore: Number,
     shortlistThreshold: Number,
     isShortlisted: Boolean,
@@ -88,6 +89,31 @@ const resumeSchema = new mongoose.Schema({
     concerns: [String],
     resumePositives: [String],
     resumeNegatives: [String],
+    mlEvaluation: {
+      success: Boolean,
+      modelId: String,
+      algorithm: String,
+      taskType: String,
+      prediction: String,
+      probabilities: {
+        type: Map,
+        of: Number
+      },
+      confidence: Number,
+      rawFitProbability: Number,
+      calibratedFitProbability: Number,
+      decisionThreshold: Number,
+      usedForPrimaryScoring: Boolean,
+      inputQuality: {
+        resumeWordCount: Number,
+        jobWordCount: Number,
+        requiredSkillCount: Number,
+        useAsPrimarySignal: Boolean,
+        warnings: [String]
+      },
+      fitScore: Number,
+      error: String
+    },
     recommendation: String,
     analysis: String,
     screenedAt: Date
@@ -95,8 +121,10 @@ const resumeSchema = new mongoose.Schema({
   screeningHistory: [{
     jobDescriptionId: String,
     jobTitle: String,
+    evaluationProvider: String,
     overallScore: Number,
     isShortlisted: Boolean,
+    mlModelId: String,
     screenedAt: {
       type: Date,
       default: Date.now
